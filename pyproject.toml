@@ -1,0 +1,18 @@
+[project]
+name = "fastapi-lowjs-auth"
+version = "0.1.0"
+description = "LowJS Authentication FastAPI template. Supports Google Authentication and Email / Password."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.12",
+    "fastapi-sso>=0.18.0",
+    "fastapi-users>=14.0.1",
+    "python-jose>=3.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipython>=9.2.0",
+    "prettyprinter>=0.18.0",
+]

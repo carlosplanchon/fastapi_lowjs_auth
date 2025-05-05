@@ -1,0 +1,190 @@
+{# templates/login.html #}
+<!DOCTYPE html>
+<html lang="es" x-data="authApp()" x-init="init()">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- Tailwind vía CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <title>Autenticación</title>
+</head>
+
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-6">
+  <div class="w-full max-w-md">
+
+    <!-- PANEL LOGIN ------------------------------------------------------- -->
+    <template x-if="view==='login'">
+      <div class="bg-white shadow p-8 rounded-lg">
+        <h1 class="text-2xl font-semibold text-center mb-6">Iniciar sesión</h1>
+
+        <!-- Google -->
+        <button
+          class="w-full flex items-center justify-center gap-2 border border-gray-300 rounded px-4 py-2 mb-6 hover:bg-gray-50 transition"
+          @click="google()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="h-5">
+          <span>Login with Google</span>
+        </button>
+
+        <!-- Email / password -->
+        <form @submit.prevent="login" class="space-y-4">
+          <input x-model="email" type="email" placeholder="Email" required
+                 class="w-full border rounded px-3 py-2">
+          <input x-model="password" type="password" placeholder="Contraseña" required
+                 class="w-full border rounded px-3 py-2">
+          <button type="submit"
+                  class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+            Login
+          </button>
+        </form>
+
+        <p class="text-sm text-center mt-4">
+          Don't have an account?
+          <a href="#" @click.prevent="view='register'"
+             class="text-blue-600 hover:underline">Regístrate</a>
+        </p>
+
+        <p x-text="error" class="text-red-600 text-sm mt-4 text-center"></p>
+      </div>
+    </template>
+
+    <!-- PANEL REGISTRO ---------------------------------------------------- -->
+    <template x-if="view==='register'">
+      <div class="bg-white shadow p-8 rounded-lg">
+        <h1 class="text-2xl font-semibold text-center mb-6">Crear cuenta</h1>
+
+        <form @submit.prevent="register" class="space-y-4">
+          <input x-model="email" type="email" placeholder="Email" required
+                 class="w-full border rounded px-3 py-2">
+          <input x-model="password" type="password" placeholder="Contraseña" required
+                 class="w-full border rounded px-3 py-2">
+          <input x-model="password2" type="password" placeholder="Repite contraseña" required
+                 class="w-full border rounded px-3 py-2">
+          <button type="submit"
+                  class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition">
+            Sign Up
+          </button>
+        </form>
+
+        <p class="text-sm text-center mt-4">
+          Already have an account?
+          <a href="#" @click.prevent="view='login'"
+             class="text-blue-600 hover:underline">Login</a>
+        </p>
+
+        <p x-text="error" class="text-red-600 text-sm mt-4 text-center"></p>
+      </div>
+    </template>
+
+    <!-- PANEL DASHBOARD --------------------------------------------------- -->
+    <template x-if="view==='dashboard'">
+      <div class="bg-white shadow p-8 rounded-lg">
+        <h1 class="text-2xl font-semibold text-center mb-6">My account</h1>
+
+        <p class="mb-4"><strong>ID&nbsp;:</strong> <span x-text="user.id"></span></p>
+        <p class="mb-6"><strong>Email:</strong> <span x-text="user.email"></span></p>
+
+        <button @click="logout"
+                class="w-full bg-gray-800 text-white py-2 rounded hover:bg-black transition">
+          Log out
+        </button>
+      </div>
+    </template>
+
+  </div>
+
+  <!-- Logic -------------------------------------------------------------- -->
+  <script>
+  function authApp() {
+    const BASE_URL = "{{ base_url }}";   // <- Returned by FastAPI as str.
+
+    return {
+      /* state ----------------------------------------------------------- */
+      view: "login",
+      email: "", password: "", password2: "",
+      error: "", user: {},
+
+      /* lifecycle ---------------------------------------------------- */
+      init() {
+        // Capture token if it comes from Google (?token=xxx)
+        const url = new URL(window.location.href);
+        const t   = url.searchParams.get("token");
+        if (t) {
+          localStorage.setItem("token", t);
+          url.searchParams.delete("token");
+          history.replaceState({}, "", url.pathname);
+        }
+
+        const token = localStorage.getItem("token");
+        if (token) this.fetchMe();
+      },
+
+      /* helpers ---------------------------------------------------------- */
+      async api(path, opts={}) {
+        const token = localStorage.getItem("token");
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const res = await fetch(BASE_URL + path, { headers, ...opts });
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      },
+
+      /* actions --------------------------------------------------------- */
+      async register() {
+        this.error = "";
+        if (this.password !== this.password2) {
+          this.error = "Las contraseñas no coinciden";
+          return;
+        }
+        try {
+          await this.api("/auth/register", {
+            method: "POST",
+            body: JSON.stringify({ email: this.email, password: this.password })
+          });
+          await this.login();            // login automático
+        } catch (e) {
+          this.error = e.message;
+        }
+      },
+
+      async login() {
+        this.error = "";
+        try {
+          const data = await this.api("/auth/jwt/login", {
+            method: "POST",
+            body: JSON.stringify({ username: this.email, password: this.password })
+          });
+          localStorage.setItem("token", data.access_token);
+          await this.fetchMe();
+        } catch {
+          this.error = "Email o contraseña incorrectos";
+        }
+      },
+
+      async fetchMe() {
+        try {
+          this.user = await this.api("/me");
+          this.view = "dashboard";
+        } catch {
+          localStorage.removeItem("token");
+          this.view = "login";
+        }
+      },
+
+      logout() {
+        localStorage.removeItem("token");
+        this.email = this.password = this.password2 = "";
+        this.view = "login";
+      },
+
+      google() {
+        window.location.href = BASE_URL + "/auth/google/login";
+      }
+    };
+  }
+  </script>
+</body>
+</html>

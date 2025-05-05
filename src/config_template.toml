@@ -1,0 +1,19 @@
+# Change the name to config.toml fill with the appropiate values in production.
+
+[app]
+ROOT_PATH = "..."
+
+[database]
+DB_HOST = "..."
+DB_PORT = 5432
+DB_NAME = "..."
+DB_USERNAME = "..."
+DB_PASSWORD = "..."
+
+[security]
+JWT_SIGNING_SECRET_KEY = "..."
+
+[google]
+GOOGLE_CLIENT_ID     = "..."
+GOOGLE_CLIENT_SECRET = "..."
+GOOGLE_REDIRECT_URI  = "..."
